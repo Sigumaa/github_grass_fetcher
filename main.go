@@ -46,7 +46,7 @@ func run(username, theme, out string) error {
 		return err
 	}
 
-	if err := os.WriteFile("contributions.png", buf, 0o644); err != nil {
+	if err := os.WriteFile(out, buf, 0o644); err != nil {
 		return err
 	}
 
