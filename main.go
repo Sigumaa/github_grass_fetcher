@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -10,23 +11,23 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("requires GitHub's username on arg(1)")
+	username := flag.String("user", "", "GitHub username")
+	theme := flag.String("theme", "light", "Theme for the GitHub page")
+	out := flag.String("out", "contributions.png", "Output file name")
+	flag.Parse()
+
+	if *username == "" {
+		fmt.Fprintln(os.Stderr, "GitHub username is required")
+		flag.Usage()
 		os.Exit(1)
 	}
-	username := os.Args[1]
 
-	if err := run(username); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	if err := run(*username, *theme, *out); err != nil {
+		log.Fatal(err)
 	}
 }
 
-func run(username string) error {
-	theme := "light"
-	if len(os.Args) >= 3 {
-		theme = os.Args[2]
-	}
+func run(username, theme, out string) error {
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("headless", false),
@@ -39,41 +40,23 @@ func run(username string) error {
 	ctx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
 	defer cancel()
 
+	selector := ".js-yearly-contributions"
 	var buf []byte
-	err := chromedp.Run(ctx,
-		chromedp.Navigate(fmt.Sprintf("https://github.com/%s", username)),
-		chromedp.EvaluateAsDevTools(`
-            const elementList = document.getElementsByClassName("flex-shrink-0");
-            let i = 0;
-            while (true) {
-                const element = elementList.item(i);
-                if (!element) {
-                    break;
-                }
-                element.remove();
-                i++;
-            }
-
-            document.querySelector("html").setAttribute("data-color-mode", "`+theme+`");
-        `, &buf),
-		chromedp.WaitVisible(".js-yearly-contributions"),
-		chromedp.Screenshot(".js-yearly-contributions", &buf, chromedp.NodeVisible),
-	)
-
-	if err != nil {
+	if err := chromedp.Run(ctx, elementScreenshot(fmt.Sprintf("https://github.com/%s", username), selector, &buf, theme)); err != nil {
 		return err
 	}
 
-	file, err := os.Create("output.jpeg")
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = file.Write(buf)
-	if err != nil {
+	if err := os.WriteFile("contributions.png", buf, 0o644); err != nil {
 		return err
 	}
 
 	return nil
+}
+func elementScreenshot(urlstr, sel string, res *[]byte, theme string) chromedp.Tasks {
+	return chromedp.Tasks{
+		chromedp.Navigate(urlstr),
+		chromedp.EvaluateAsDevTools(`document.querySelector("html").setAttribute("data-color-mode", "`+theme+`");`, nil),
+		chromedp.WaitVisible(sel),
+		chromedp.Screenshot(sel, res, chromedp.NodeVisible),
+	}
 }
