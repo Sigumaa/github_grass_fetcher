@@ -40,6 +40,10 @@ func run(username, theme, out string) error {
 	ctx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
 	defer cancel()
 
+	if err := chromedp.Run(ctx, chromedp.EmulateViewport(1920, 1080, chromedp.EmulateScale(2))); err != nil {
+		return err
+	}
+
 	selector := ".js-yearly-contributions"
 	var buf []byte
 	if err := chromedp.Run(ctx, elementScreenshot(fmt.Sprintf("https://github.com/%s", username), selector, &buf, theme)); err != nil {
