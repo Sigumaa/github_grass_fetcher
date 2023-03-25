@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/chromedp/chromedp"
 )
@@ -38,6 +39,9 @@ func run(username, theme, out string) error {
 	defer cancel()
 
 	ctx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
+	defer cancel()
+
+	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	if err := chromedp.Run(ctx, chromedp.EmulateViewport(1920, 1080, chromedp.EmulateScale(2))); err != nil {
